@@ -3,7 +3,7 @@
 //  Centralised HTTP client for the backend
 // ─────────────────────────────────────────────
 
-const BASE_URL = process.env.REACT_APP_API_URL || `http://${window.location.hostname}:5000/api`;
+export const BASE_URL = process.env.REACT_APP_API_URL || `http://${window.location.hostname}:5000/api`;
 
 // ── Generic fetch wrapper with JWT ────────────
 async function apiFetch(path, options = {}) {

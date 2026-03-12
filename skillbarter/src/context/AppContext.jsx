@@ -3,7 +3,8 @@
 //  Now wired to real backend API
 // ─────────────────────────────────────────────
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { authAPI, messagesAPI } from "../services/api";
+import { authAPI, messagesAPI, BASE_URL } from "../services/api";
+import { io } from "socket.io-client";
 
 const AppContext = createContext();
 
@@ -16,6 +17,7 @@ export function AppProvider({ children }) {
     const [chats, setChats] = useState({});           // userId → messages[]
     const [loading, setLoading] = useState(true);     // initial auth check
     const [error, setError] = useState(null);
+    const [socket, setSocket] = useState(null);
 
     // ── Auto-login from stored token ───────────
     useEffect(() => {
@@ -34,6 +36,24 @@ export function AppProvider({ children }) {
         };
         restoreSession();
     }, []);
+
+    // ── Socket initialization ──────────────────
+    useEffect(() => {
+        if (user && !socket) {
+            const serverUrl = BASE_URL.replace("/api", "");
+            const newSocket = io(serverUrl);
+            newSocket.on("connect", () => {
+                newSocket.emit("join", user._id);
+            });
+            setSocket(newSocket);
+        } else if (!user && socket) {
+            socket.disconnect();
+            setSocket(null);
+        }
+        return () => {
+            if (socket) socket.disconnect();
+        };
+    }, [user]);
 
     // ── Register ───────────────────────────────
     const register = async (name, email, password) => {
@@ -114,6 +134,7 @@ export function AppProvider({ children }) {
             activeChat, setActiveChat,
             sendMessage,
             updateUser,
+            socket
         }}>
             {children}
         </AppContext.Provider>

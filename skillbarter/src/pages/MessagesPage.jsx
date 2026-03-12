@@ -50,6 +50,36 @@ export default function MessagesPage() {
         }
     }, [app.user]);
 
+    // Listen for incoming socket messages
+    useEffect(() => {
+        if (!app.socket) return;
+        
+        const handleNewMessage = (m) => {
+            const isFromActive = activeChatUser && m.sender._id === activeChatUser._id;
+            
+            // 1. If we are currently chatting with this user, append the message
+            if (isFromActive) {
+                setMessages(prev => [...prev, {
+                    _id: m._id,
+                    from: m.sender.name,
+                    text: m.text,
+                    time: new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                }]);
+                
+                // Mark as read in the DB (optimistically handled by getting history, but good to have)
+                messagesAPI.history(activeChatUser._id).catch(() => {});
+            }
+            
+            // 2. Refresh the inbox to show the latest text and potential unread badge
+            messagesAPI.inbox()
+                .then(d => setContacts(d.conversations || []))
+                .catch(console.error);
+        };
+
+        app.socket.on("new_message", handleNewMessage);
+        return () => app.socket.off("new_message", handleNewMessage);
+    }, [app.socket, activeChatUser]);
+
     useEffect(() => {
         if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }, [messages]);
