@@ -1,0 +1,237 @@
+/* ─────────────────────────────────────────────
+   SkillBarter — Premium Global Styles
+───────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,700&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+
+:root {
+    --yellow: #FFD600;
+    --yellow-dim: rgba(255, 214, 0, 0.15);
+    --yellow-glow: 0 0 24px rgba(255, 214, 0, 0.25);
+    --green: #10B981;
+    --red: #EF4444;
+    --blue: #3B82F6;
+    --radius-sm: 10px;
+    --radius-md: 16px;
+    --radius-lg: 24px;
+    --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Source Sans 3', sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #FFD600; border-radius: 99px; }
+
+/* ── Buttons ── */
+.btn-yellow {
+    background: linear-gradient(135deg, #FFD600, #F0C800);
+    color: #0A0A0A;
+    border: none;
+    cursor: pointer;
+    font-family: 'Source Sans 3', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+.btn-yellow::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+    opacity: 0;
+    transition: var(--transition);
+}
+.btn-yellow:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255,214,0,0.35); }
+.btn-yellow:hover::after { opacity: 1; }
+.btn-yellow:active { transform: translateY(0); }
+
+.btn-outline {
+    background: transparent;
+    border: 1.5px solid rgba(255,214,0,0.5);
+    color: #FFD600;
+    cursor: pointer;
+    font-family: 'Source Sans 3', sans-serif;
+    font-weight: 600;
+    transition: var(--transition);
+}
+.btn-outline:hover { background: var(--yellow-dim); border-color: #FFD600; transform: translateY(-1px); }
+
+/* ── Cards ── */
+.skill-card {
+    transition: var(--transition);
+    cursor: pointer;
+    position: relative;
+}
+.skill-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(255,214,0,0.06), transparent);
+    opacity: 0;
+    transition: var(--transition);
+}
+.skill-card:hover { transform: translateY(-6px); box-shadow: 0 20px 48px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,214,0,0.2) !important; }
+.skill-card:hover::before { opacity: 1; }
+
+/* ── Glass card ── */
+.glass-card {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+/* ── Nav ── */
+.nav-link { transition: var(--transition); cursor: pointer; }
+.nav-link:hover { color: #FFD600 !important; }
+.nav-link.active { color: #FFD600 !important; font-weight: 600; }
+
+/* ── Category pills ── */
+.cat-pill { cursor: pointer; transition: var(--transition); }
+.cat-pill:hover { background: #FFD600 !important; color: #0A0A0A !important; transform: translateY(-1px); }
+
+/* ── Chat ── */
+.chat-msg-me {
+    background: linear-gradient(135deg, #FFD600, #F0C800);
+    color: #0A0A0A;
+    border-radius: 20px 20px 4px 20px;
+    font-weight: 500;
+}
+.chat-msg-other { border-radius: 20px 20px 20px 4px; }
+.msg-row { transition: var(--transition); }
+.msg-row:hover { background: rgba(255,214,0,0.06) !important; }
+
+/* ── Stat cards ── */
+.stat-card {
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+.stat-card::after {
+    content: '';
+    position: absolute;
+    top: -30%;
+    right: -20%;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.05;
+    transition: var(--transition);
+}
+.stat-card:hover { transform: translateY(-4px); }
+
+/* ── Inputs ── */
+input, textarea {
+    font-family: 'Source Sans 3', sans-serif;
+    outline: none;
+    border: none;
+}
+input:focus, textarea:focus { outline: none; }
+
+/* ── Animations ── */
+@keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.5 } }
+.pulse { animation: pulse 2s infinite; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in-up { animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
+@keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+.shimmer {
+    background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.05) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* ── Progress bar ── */
+.progress-bar { height: 6px; border-radius: 99px; overflow: hidden; }
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #FFD600, #F59E0B);
+    border-radius: 99px;
+    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 8px rgba(255,214,0,0.4);
+}
+
+/* ── Tab buttons ── */
+.tab-btn { cursor: pointer; transition: var(--transition); border: none; background: none; font-family: 'Source Sans 3'; }
+
+/* ── Booking / Calendar ── */
+.time-slot { cursor: pointer; transition: var(--transition); border-radius: 10px; }
+.time-slot:hover, .time-slot.selected {
+    background: linear-gradient(135deg, #FFD600, #F0C800) !important;
+    color: #0A0A0A !important;
+    border-color: #FFD600 !important;
+    transform: scale(1.04);
+    box-shadow: 0 4px 12px rgba(255,214,0,0.3);
+}
+.cal-day { cursor: pointer; transition: var(--transition); border-radius: 8px; }
+.cal-day:hover, .cal-day.selected {
+    background: linear-gradient(135deg, #FFD600, #F0C800);
+    color: #0A0A0A;
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(255,214,0,0.3);
+}
+
+/* ── Notification dot ── */
+.notif-dot {
+    width: 8px; height: 8px;
+    background: linear-gradient(135deg, #FF4444, #FF6B6B);
+    border-radius: 50%;
+    position: absolute;
+    top: 5px; right: 5px;
+    box-shadow: 0 0 6px rgba(255,68,68,0.6);
+    animation: pulse 2s infinite;
+}
+
+/* ── Badge pill ── */
+.badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    letter-spacing: 0.02em;
+}
+
+/* ── Gradient text ── */
+.text-gradient {
+    background: linear-gradient(135deg, #FFD600, #F59E0B);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ── Glow ring on focus ── */
+.glow-focus:focus-within {
+    box-shadow: 0 0 0 2px rgba(255,214,0,0.35);
+}
+
+/* ── Leaderboard ── */
+.leaderboard-row { transition: var(--transition); }
+.leaderboard-row:hover { background: rgba(255,214,0,0.07) !important; transform: translateX(4px); }
+
+/* ── Room card ── */
+.room-card { transition: var(--transition); cursor: pointer; }
+.room-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,0.15); }

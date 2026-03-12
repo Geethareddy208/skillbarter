@@ -1,0 +1,199 @@
+// ─────────────────────────────────────────────
+//  SkillBarter — Session Booking (4-step wizard)
+//  Step 4 now posts real booking to API
+// ─────────────────────────────────────────────
+import { useState, useEffect } from "react";
+import { useTheme } from "../context/ThemeContext";
+import { useApp } from "../context/AppContext";
+import { skillsAPI, bookingsAPI } from "../services/api";
+
+const STEPS = ["Choose Mentor", "Pick Date & Time", "Session Type", "Confirm"];
+const TIMES = ["9:00 AM", "10:00 AM", "11:00 AM", "2:00 PM", "3:00 PM", "4:00 PM", "6:00 PM", "7:00 PM"];
+const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
+const TYPES = [
+    { ic: "🎥", title: "1-on-1 Video Call", sub: "Private session via video", cr: 1 },
+    { ic: "👥", title: "Group Session", sub: "Learn with 2–5 others", cr: 0.5 },
+    { ic: "📍", title: "Offline Meetup", sub: "In-person at agreed location", cr: 1.5 },
+    { ic: "⚡", title: "Emergency Help", sub: "Quick 20-min problem solving", cr: 0.3 },
+];
+
+export default function BookingPage() {
+    const t = useTheme();
+    const app = useApp();
+
+    const [step, setStep] = useState(1);
+    const [skills, setSkills] = useState([]);
+    const [selected, setSelected] = useState(null);
+    const [date, setDate] = useState(null);
+    const [time, setTime] = useState(null);
+    const [sessionType, setSessionType] = useState(null);
+    const [booking, setBooking] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        skillsAPI.list().then((d) => setSkills(d.skills)).catch(console.error);
+    }, []);
+
+    const confirm = async () => {
+        if (!selected || !date || !time || !sessionType) return;
+        setSubmitting(true);
+        setError(null);
+        try {
+            const data = await bookingsAPI.create({
+                skillId: selected._id,
+                date: `March ${date}, 2026`,
+                time,
+                sessionType: sessionType.title,
+            });
+            setBooking(data.booking);
+            setStep(4);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <div style={{ padding: "32px 40px", maxWidth: 800, margin: "0 auto" }}>
+            <div style={{ fontFamily: "'Playfair Display',sans-serif", fontWeight: 800, fontSize: 26, color: t.textPrimary, marginBottom: 8 }}>Book a Session</div>
+            <div style={{ color: t.textSecondary, fontSize: 14, marginBottom: 32 }}>Schedule your learning session with your preferred mentor</div>
+
+            {/* Steps indicator */}
+            <div style={{ display: "flex", alignItems: "center", marginBottom: 36 }}>
+                {STEPS.map((s, i) => (
+                    <div key={s} style={{ display: "flex", alignItems: "center", flex: 1 }}>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1 }}>
+                            <div style={{ width: 36, height: 36, borderRadius: "50%", transition: "all 0.3s", background: step > i + 1 ? "#10B981" : step === i + 1 ? "#FFD600" : (t.dark ? "#2A2A2A" : "#E8E8E0"), display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14, color: step >= i + 1 ? "#0A0A0A" : t.textSecondary }}>
+                                {step > i + 1 ? "✓" : i + 1}
+                            </div>
+                            <div style={{ fontSize: 11, color: step === i + 1 ? "#FFD600" : t.textSecondary, marginTop: 6, fontWeight: step === i + 1 ? 600 : 400, textAlign: "center" }}>{s}</div>
+                        </div>
+                        {i < 3 && <div style={{ height: 2, flex: 1, background: step > i + 1 ? "#FFD600" : (t.dark ? "#2A2A2A" : "#E8E8E0"), marginBottom: 20, transition: "all 0.3s" }} />}
+                    </div>
+                ))}
+            </div>
+
+            <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 20, padding: "32px" }}>
+
+                {/* Step 1 */}
+                {step === 1 && (
+                    <div>
+                        <div style={{ fontFamily: "'Playfair Display',sans-serif", fontWeight: 700, fontSize: 18, color: t.textPrimary, marginBottom: 20 }}>Choose Your Mentor</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                            {skills.slice(0, 6).map((s) => (
+                                <div key={s._id} onClick={() => { setSelected(s); setStep(2); }} className="skill-card" style={{ display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", borderRadius: 14, border: `1.5px solid ${t.cardBorder}`, cursor: "pointer" }}>
+                                    <div style={{ width: 50, height: 50, borderRadius: "50%", background: "#FFD600", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 16, color: "#0A0A0A" }}>{s.mentorAvatar || "??"}</div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 600, color: t.textPrimary, fontSize: 15 }}>{s.mentorName}</div>
+                                        <div style={{ fontSize: 13, color: t.textSecondary }}>{s.name}</div>
+                                    </div>
+                                    <div style={{ textAlign: "right" }}>
+                                        <div style={{ color: "#FFD600", fontWeight: 700, fontSize: 15 }}>{s.credits} cr/hr</div>
+                                        <div style={{ fontSize: 12, color: t.textSecondary }}>⭐ {s.rating || "New"}</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Step 2 */}
+                {step === 2 && (
+                    <div>
+                        <div style={{ fontFamily: "'Playfair Display',sans-serif", fontWeight: 700, fontSize: 18, color: t.textPrimary, marginBottom: 20 }}>Select Date & Time</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28 }}>
+                            <div>
+                                <div style={{ fontWeight: 600, color: t.textPrimary, marginBottom: 12, fontSize: 14 }}>March 2026</div>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4 }}>
+                                    {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+                                        <div key={i} style={{ textAlign: "center", fontSize: 12, color: t.textSecondary, padding: "4px", fontWeight: 600 }}>{d}</div>
+                                    ))}
+                                    {Array(9).fill(null).map((_, i) => <div key={`e${i}`} />)}
+                                    {DAYS.map((day) => (
+                                        <div key={day} onClick={() => { if (day >= 12) { setDate(day); } }} className={`cal-day ${date === day ? "selected" : ""}`}
+                                            style={{ textAlign: "center", padding: "8px 4px", fontSize: 13, color: day < 12 ? t.textSecondary : t.textPrimary, opacity: day < 12 ? 0.4 : 1, cursor: day < 12 ? "default" : "pointer" }}>
+                                            {day}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <div style={{ fontWeight: 600, color: t.textPrimary, marginBottom: 12, fontSize: 14 }}>Available Times</div>
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                                    {TIMES.map((tm) => (
+                                        <div key={tm} onClick={() => setTime(tm)} className={`time-slot ${time === tm ? "selected" : ""}`}
+                                            style={{ padding: "10px", textAlign: "center", border: `1.5px solid ${t.cardBorder}`, fontSize: 13, color: t.textPrimary, borderRadius: 8, cursor: "pointer", background: time === tm ? "#FFD600" : "transparent" }}>
+                                            {tm}
+                                        </div>
+                                    ))}
+                                </div>
+                                {date && time && (
+                                    <button className="btn-yellow" onClick={() => setStep(3)} style={{ width: "100%", padding: "12px", borderRadius: 12, fontSize: 14, marginTop: 16 }}>Next →</button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Step 3 */}
+                {step === 3 && (
+                    <div>
+                        <div style={{ fontFamily: "'Playfair Display',sans-serif", fontWeight: 700, fontSize: 18, color: t.textPrimary, marginBottom: 20 }}>Session Type</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                            {TYPES.map((ty) => (
+                                <div key={ty.title} onClick={() => { setSessionType(ty); confirm(); }} className="skill-card"
+                                    style={{ padding: "22px", border: `1.5px solid ${t.cardBorder}`, borderRadius: 16, cursor: submitting ? "wait" : "pointer", textAlign: "center" }}>
+                                    <div style={{ fontSize: 36, marginBottom: 12 }}>{ty.ic}</div>
+                                    <div style={{ fontWeight: 700, color: t.textPrimary, fontSize: 15, marginBottom: 6 }}>{ty.title}</div>
+                                    <div style={{ fontSize: 12, color: t.textSecondary, marginBottom: 10 }}>{ty.sub}</div>
+                                    <div style={{ color: "#FFD600", fontWeight: 700 }}>{ty.cr} cr/hr</div>
+                                </div>
+                            ))}
+                        </div>
+                        {error && <div style={{ marginTop: 16, padding: "12px 16px", borderRadius: 10, background: "#EF444415", color: "#EF4444", fontSize: 13 }}>⚠️ {error}</div>}
+                        {submitting && <div style={{ textAlign: "center", color: t.textSecondary, marginTop: 16 }}>Processing booking…</div>}
+                    </div>
+                )}
+
+                {/* Step 4 — Confirmation */}
+                {step === 4 && (
+                    <div style={{ textAlign: "center", padding: "20px" }}>
+                        <div style={{ fontSize: 60, marginBottom: 16 }}>🎉</div>
+                        <div style={{ fontFamily: "'Playfair Display',sans-serif", fontWeight: 800, fontSize: 26, color: t.textPrimary, marginBottom: 10 }}>Session Booked!</div>
+                        <div style={{ fontSize: 15, color: t.textSecondary, marginBottom: 28 }}>Your session is confirmed. You'll receive a reminder 30 mins before.</div>
+                        <div style={{ background: t.dark ? "#2A2A2A" : "#F8F8F4", borderRadius: 16, padding: "20px", marginBottom: 24, display: "inline-block", minWidth: 300 }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 8, textAlign: "left" }}>
+                                {[
+                                    ["📅", "Skill", booking?.skillName || selected?.name],
+                                    ["👤", "Mentor", booking?.mentorName || selected?.mentorName],
+                                    ["📅", "Date", booking?.date || `March ${date}, 2026`],
+                                    ["⏰", "Time", booking?.time || time],
+                                    ["💳", "Cost", `${booking?.creditsCost} credits deducted`],
+                                    ["📹", "Format", booking?.sessionType || "Video Call"],
+                                ].map(([ic, l, v]) => (
+                                    <div key={l} style={{ display: "flex", gap: 12 }}>
+                                        <span>{ic}</span>
+                                        <span style={{ color: t.textSecondary, width: 60, fontSize: 14 }}>{l}:</span>
+                                        <span style={{ color: t.textPrimary, fontWeight: 600, fontSize: 14 }}>{v}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+                            <button className="btn-yellow" onClick={() => { app.navigate("home"); setStep(1); setBooking(null); }} style={{ padding: "13px 28px", borderRadius: 12, fontSize: 15 }}>Go to Dashboard</button>
+                            <button className="btn-outline" onClick={() => app.navigate("messages")} style={{ padding: "13px 28px", borderRadius: 12, fontSize: 15 }}>Message Mentor</button>
+                        </div>
+                    </div>
+                )}
+
+                {step > 1 && step < 4 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24 }}>
+                        <button className="btn-outline" onClick={() => { setStep((s) => s - 1); setError(null); }} style={{ padding: "11px 24px", borderRadius: 12, fontSize: 14 }}>← Back</button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
