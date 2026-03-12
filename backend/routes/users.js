@@ -11,6 +11,17 @@ const User = require("../models/User");
 const Skill = require("../models/Skill");
 const protect = require("../middleware/auth");
 
+// ── GET all users (for messages list) ─────────
+router.get("/", protect, async (req, res) => {
+    try {
+        const users = await User.find({ _id: { $ne: req.user._id }, isActive: true })
+            .select("name avatar");
+        res.json({ success: true, users });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 // ── GET my profile ────────────────────────────
 router.get("/me", protect, async (req, res) => {
     try {

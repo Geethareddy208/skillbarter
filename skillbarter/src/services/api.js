@@ -68,6 +68,8 @@ export const skillsAPI = {
 
 // ── Users ─────────────────────────────────────
 export const usersAPI = {
+    all: () => apiFetch("/users"),
+
     me: () => apiFetch("/users/me"),
 
     update: (data) =>

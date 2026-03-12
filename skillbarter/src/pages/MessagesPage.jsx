@@ -4,7 +4,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTheme } from "../context/ThemeContext";
 import { useApp } from "../context/AppContext";
-import { messagesAPI } from "../services/api";
+import { messagesAPI, usersAPI } from "../services/api";
 
 export default function MessagesPage() {
     const t = useTheme();
@@ -19,14 +19,29 @@ export default function MessagesPage() {
     const [sending, setSending] = useState(false);
     const chatRef = useRef(null);
 
-    // Load inbox (conversations list)
+    // Load inbox and all users
     useEffect(() => {
-        messagesAPI.inbox()
-            .then(d => {
-                const convs = d.conversations || [];
-                setContacts(convs);
-                if (convs.length > 0 && !activeChatUser) {
-                    openChat(convs[0].user);
+        Promise.all([messagesAPI.inbox(), usersAPI.all()])
+            .then(([inboxRes, usersRes]) => {
+                const convs = inboxRes.conversations || [];
+                const allUsers = usersRes.users || [];
+                
+                // Merge users who don't have a conversation yet
+                const existingUserIds = new Set(convs.map(c => c.user._id));
+                const newConvs = allUsers
+                    .filter(u => !existingUserIds.has(u._id))
+                    .map(u => ({
+                        user: u,
+                        lastMessage: "Start a conversation",
+                        lastTime: new Date().toISOString(),
+                        unread: 0
+                    }));
+                
+                const mergedContacts = [...convs, ...newConvs];
+                setContacts(mergedContacts);
+
+                if (mergedContacts.length > 0 && !activeChatUser) {
+                    openChat(mergedContacts[0].user);
                 }
             })
             .catch(console.error)
