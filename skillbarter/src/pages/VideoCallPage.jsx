@@ -10,7 +10,6 @@ import { socket } from "../services/api";
 export default function VideoCallPage({ meetingId }) {
     const t = useTheme();
     const app = useApp();
-    const navigate = null; // Unused, app.navigate is used instead
 
     const [peerId, setPeerId] = useState("");
     const [partnerReady, setPartnerReady] = useState(false);
@@ -29,6 +28,8 @@ export default function VideoCallPage({ meetingId }) {
     useEffect(() => {
         if (!app.user || !meetingId) return;
 
+        let heartbeatInterval = null;
+
         // 1. Get local media
         navigator.mediaDevices.getUserMedia({ video: true, audio: true })
             .then((stream) => {
@@ -37,13 +38,14 @@ export default function VideoCallPage({ meetingId }) {
                     localVideoRef.current.srcObject = stream;
                 }
 
-                // 2. Initialize PeerJS with STUN servers for NAT traversal
+                // 2. Initialize PeerJS with multiple STUN servers
                 const peer = new Peer(app.user._id, {
                     config: {
                         iceServers: [
                             { urls: "stun:stun.l.google.com:19302" },
                             { urls: "stun:stun1.l.google.com:19302" },
                             { urls: "stun:stun2.l.google.com:19302" },
+                            { urls: "stun:stun3.l.google.com:19302" },
                         ],
                     },
                 });
@@ -52,9 +54,17 @@ export default function VideoCallPage({ meetingId }) {
                     setPeerId(id);
                     console.log("My peer ID is: " + id);
                     
-                    // 3. Join Socket Room and signal we are ready
+                    // 3. Join Socket Room and signal readiness
                     app.socket.emit("join-room", meetingId, app.user._id);
                     app.socket.emit("peer-ready", meetingId, app.user._id);
+                    
+                    // 4. Start Heartbeat to overcome race conditions
+                    heartbeatInterval = setInterval(() => {
+                        if (!partnerReady) {
+                            app.socket.emit("peer-ready", meetingId, app.user._id);
+                        }
+                    }, 3000);
+
                     setCallStatus("Ready — Waiting for partner...");
                 });
 
@@ -85,25 +95,23 @@ export default function VideoCallPage({ meetingId }) {
                     });
                 });
 
-                // Listen for other users joining via Socket
                 app.socket.on("user-connected", (userId) => {
                     console.log("User joined room:", userId);
-                    // When someone joins, we tell them we are already ready if we are
-                    if (peer.open) {
-                        app.socket.emit("peer-ready", meetingId, app.user._id);
-                    }
+                    if (peer.open) app.socket.emit("peer-ready", meetingId, app.user._id);
                 });
 
                 app.socket.on("peer-ready", (userId) => {
                     if (userId === app.user._id) return;
+                    if (partnerReady) return; // Already connected
+
                     console.log("Partner is ready:", userId);
                     setPartnerReady(true);
-                    setCallStatus("Partner ready, connecting...");
+                    setCallStatus("Partner ready, joining...");
                     
                     // Initiate call now that both are confirmed ready
                     setTimeout(() => {
                         initiateCall(peer, stream, userId);
-                    }, 1000);
+                    }, 500);
                 });
 
                 app.socket.on("user-disconnected", (userId) => {
@@ -117,18 +125,19 @@ export default function VideoCallPage({ meetingId }) {
             })
             .catch((err) => {
                 console.error("Failed to get local stream", err);
-                setCallStatus("Error: Camera/Mic access denied");
+                setCallStatus("Error: Camera/Mic permission denied");
             });
 
         return () => {
-            endCall(false); // Clean up on unmount
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            endCall(false);
             if (app.socket) {
                 app.socket.off("user-connected");
                 app.socket.off("peer-ready");
                 app.socket.off("user-disconnected");
             }
         };
-    }, [app.user, meetingId, retryCount]);
+    }, [app.user._id, meetingId, retryCount]);
 
     const initiateCall = (peer, stream, remoteId) => {
         console.log("Initiating call to", remoteId);
@@ -136,6 +145,7 @@ export default function VideoCallPage({ meetingId }) {
         currentCallRef.current = call;
 
         call.on("stream", (userVideoStream) => {
+            console.log("Initiator: Remote stream received");
             setCallStatus("Connected");
             if (remoteVideoRef.current) {
                 remoteVideoRef.current.srcObject = userVideoStream;
@@ -148,153 +158,87 @@ export default function VideoCallPage({ meetingId }) {
         });
 
         call.on("error", (err) => {
-            console.error(err);
-            setCallStatus("Call failed");
+            console.error("Initiator err:", err);
+            setCallStatus("Connection failed");
         });
     };
 
     const toggleMute = () => {
         if (localStreamRef.current) {
-            const track = localStreamRef.current.getAudioTracks()[0];
-            if (track) {
-                track.enabled = isMuted;
-                setIsMuted(!isMuted);
-            }
+            localStreamRef.current.getAudioTracks().forEach(t => t.enabled = isMuted);
+            setIsMuted(!isMuted);
         }
     };
 
     const toggleVideo = () => {
         if (localStreamRef.current) {
-            const track = localStreamRef.current.getVideoTracks()[0];
-            if (track) {
-                track.enabled = isVideoOff;
-                setIsVideoOff(!isVideoOff);
-            }
+            localStreamRef.current.getVideoTracks().forEach(t => t.enabled = isVideoOff);
+            setIsVideoOff(!isVideoOff);
         }
     };
 
     const endCall = (shouldNavigate = true) => {
-        if (currentCallRef.current) {
-            currentCallRef.current.close();
-        }
-        
-        if (localStreamRef.current) {
-            localStreamRef.current.getTracks().forEach(track => track.stop());
-        }
-
-        if (peerInstance.current) {
-            peerInstance.current.destroy();
-        }
-
-        if (shouldNavigate) {
-            app.navigate("home"); 
-        }
+        if (currentCallRef.current) currentCallRef.current.close();
+        if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => t.stop());
+        if (peerInstance.current) peerInstance.current.destroy();
+        if (shouldNavigate) app.navigate("home");
     };
 
     return (
-        <div style={{ height: "100%", display: "flex", flexDirection: "column", background: "#000" }}>
-            {/* Header */}
-            <div style={{ padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(0,0,0,0.5)", position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 }}>
-                <div style={{ color: "#FFF", fontWeight: 600, fontSize: 16 }}>
-                    {callStatus} {remoteUserName && `with ${remoteUserName}`}
-                </div>
+        <div style={{ height: "100vh", width: "100vw", display: "flex", flexDirection: "column", background: "#060606", position: "fixed", top: 0, left: 0, zIndex: 9999 }}>
+            
+            {/* Header Badge */}
+            <div style={{ 
+                position: "absolute", top: 24, left: "50%", transform: "translateX(-50%)", 
+                zIndex: 10, padding: "8px 24px", borderRadius: 99,
+                background: "rgba(255, 255, 255, 0.08)", backdropFilter: "blur(20px)",
+                border: "1px solid rgba(255, 255, 255, 0.1)", color: "#FFF",
+                display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.4)"
+            }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: callStatus === "Connected" ? "#10B981" : "#FFD600", boxShadow: `0 0 10px ${callStatus === "Connected" ? "#10B981" : "#FFD600"}` }} />
+                <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "0.02em" }}>{callStatus}</span>
             </div>
 
-            {/* Video Container */}
-            <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {/* Remote Video (Full Screen) */}
+            {/* Video Viewport */}
+            <div style={{ flex: 1, position: "relative", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {/* Remote Stream */}
                 <video 
                     ref={remoteVideoRef} 
                     autoPlay 
                     playsInline 
-                    style={{ width: "100%", height: "100%", objectFit: "cover", background: "#111" }} 
+                    style={{ width: "100%", height: "100%", objectFit: "cover", background: "#000" }} 
                 />
+                
+                {/* Waiting UI if not connected */}
+                {callStatus !== "Connected" && (
+                    <div style={{ position: "absolute", textAlign: "center", color: "rgba(255,255,255,0.4)" }}>
+                        <div style={{ fontSize: 48, marginBottom: 16 }}>🎬</div>
+                        <div style={{ fontSize: 14 }}>Waiting for stream...</div>
+                    </div>
+                )}
 
-                {/* Local Video (PiP) */}
+                {/* Local PiP */}
                 <div style={{ 
-                    position: "absolute", 
-                    bottom: 100, 
-                    right: 24, 
-                    width: 160, 
-                    height: 240, 
-                    borderRadius: 16, 
-                    overflow: "hidden", 
-                    border: "2px solid rgba(255,255,255,0.2)",
-                    background: "#222",
-                    boxShadow: "0 8px 24px rgba(0,0,0,0.5)"
+                    position: "absolute", bottom: 120, right: 32, 
+                    width: 140, height: 210, borderRadius: 20, 
+                    overflow: "hidden", border: "1px solid rgba(255,255,255,0.15)",
+                    background: "#111", boxShadow: "0 20px 50px rgba(0,0,0,0.6)",
+                    transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)"
                 }}>
-                    <video 
-                        ref={localVideoRef} 
-                        autoPlay 
-                        playsInline 
-                        muted // Local video must be muted
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }} 
-                    />
+                    <video ref={localVideoRef} autoPlay playsInline muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <div style={{ position: "absolute", bottom: 8, left: 12, fontSize: 10, color: "#FFF", fontWeight: 600, textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}>You</div>
                 </div>
             </div>
 
-            {/* Controls */}
+            {/* Premium Controls */}
             <div style={{ 
-                padding: "24px", 
-                display: "flex", 
-                justifyContent: "center", 
-                gap: 20, 
-                background: "linear-gradient(transparent, rgba(0,0,0,0.8))",
-                position: "absolute",
-                bottom: 0,
-                left: 0,
-                right: 0
+                height: 100, display: "flex", justifyContent: "center", alignItems: "center", 
+                gap: 24, paddingBottom: 20, zIndex: 10
             }}>
-                <button 
-                    onClick={toggleMute}
-                    style={{ 
-                        width: 56, height: 56, borderRadius: "50%", 
-                        background: isMuted ? "#EF4444" : "rgba(255,255,255,0.2)", 
-                        color: "#FFF", border: "none", cursor: "pointer", 
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 24,
-                        backdropFilter: "blur(10px)"
-                    }}>
-                    {isMuted ? "🔇" : "🎤"}
-                </button>
-                <button 
-                    onClick={endCall}
-                    style={{ 
-                        width: 56, height: 56, borderRadius: "50%", 
-                        background: "#EF4444", 
-                        color: "#FFF", border: "none", cursor: "pointer", 
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 24,
-                        boxShadow: "0 4px 12px rgba(239, 68, 68, 0.4)"
-                    }}>
-                    📞
-                </button>
-                <button 
-                    onClick={toggleVideo}
-                    style={{ 
-                        width: 56, height: 56, borderRadius: "50%", 
-                        background: isVideoOff ? "#EF4444" : "rgba(255,255,255,0.2)", 
-                        color: "#FFF", border: "none", cursor: "pointer", 
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 24,
-                        backdropFilter: "blur(10px)"
-                    }}>
-                    {isVideoOff ? "🚫" : "📹"}
-                </button>
-                <button 
-                    onClick={() => setRetryCount(prev => prev + 1)}
-                    style={{ 
-                        width: 56, height: 56, borderRadius: "50%", 
-                        background: "rgba(255,255,255,0.2)", 
-                        color: "#FFF", border: "none", cursor: "pointer", 
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 24,
-                        backdropFilter: "blur(10px)"
-                    }}
-                    title="Refresh Connection"
-                >
-                    🔄
-                </button>
+                <ControlBtn onClick={toggleMute} icon={isMuted ? "🔇" : "🎤"} active={!isMuted} color={isMuted ? "#EF4444" : "rgba(255,255,255,0.1)"} />
+                <ControlBtn onClick={endCall} icon="📞" color="#EF4444" size={64} />
+                <ControlBtn onClick={toggleVideo} icon={isVideoOff ? "🚫" : "📹"} active={!isVideoOff} color={isVideoOff ? "#EF4444" : "rgba(255,255,255,0.1)"} />
+                <ControlBtn onClick={() => setRetryCount(c => c + 1)} icon="🔄" color="rgba(255,255,255,0.1)" />
             </div>
         </div>
     );

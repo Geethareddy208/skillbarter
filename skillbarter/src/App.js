@@ -55,13 +55,19 @@ function LoadingSplash() {
 function Shell() {
     const t = useTheme();
     const app = useApp();
-
+    
     let CurrentPage = PAGES[app.page] || HomePage;
     let pageProps = {};
 
-    if (app.page.startsWith("call/")) {
+    const isCall = app.page.startsWith("call/");
+    if (isCall) {
         CurrentPage = PAGES["call"];
         pageProps = { meetingId: app.page.split("call/")[1] };
+        return (
+            <div style={{ height: "100vh", background: "#000", overflow: "hidden" }}>
+                <CurrentPage {...pageProps} />
+            </div>
+        );
     }
 
     return (
