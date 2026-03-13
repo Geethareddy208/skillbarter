@@ -124,6 +124,11 @@ export default function HomePage() {
                                     const missed = isMissed(b.date, b.time);
                                     const joinable = isJoinable(b.date, b.time);
                                     
+                                    // Determine if current user is the mentor for this booking
+                                    const isMentoring = b.mentor?._id === user?._id || b.mentor === user?._id;
+                                    const otherName = isMentoring ? (b.learner?.name || "Learner") : (b.mentor?.name || b.mentorName);
+                                    const otherAvatar = isMentoring ? (b.learner?.avatar || "??") : (b.mentor?.avatar || b.mentorAvatar || "??");
+
                                     return (
                                         <div key={b._id} style={{
                                             background: t.cardBg,
@@ -147,11 +152,11 @@ export default function HomePage() {
                                                     fontWeight: 700, fontSize: 14, color: missed ? "#FFF" : "#0A0A0A",
                                                     boxShadow: missed ? "none" : "0 4px 12px rgba(255,214,0,0.3)",
                                                 }}>
-                                                    {b.mentor?.avatar || b.mentorAvatar || "??"}
+                                                    {otherAvatar}
                                                 </div>
                                                 <div>
                                                     <div style={{ fontWeight: 600, color: t.textPrimary, fontSize: 15 }}>{b.skillName}</div>
-                                                    <div style={{ fontSize: 13, color: t.textSecondary }}>with {b.mentorName}</div>
+                                                    <div style={{ fontSize: 13, color: t.textSecondary }}>{isMentoring ? "Teaching" : "Learning with"} {otherName}</div>
                                                 </div>
                                             </div>
                                             <div style={{ textAlign: "right" }}>

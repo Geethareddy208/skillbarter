@@ -110,10 +110,13 @@ router.post("/", protect, async (req, res) => {
 // ── GET my bookings as learner ────────────────
 router.get("/me", protect, async (req, res) => {
     try {
-        const bookings = await Booking.find({ learner: req.user._id })
+        const bookings = await Booking.find({
+            $or: [{ learner: req.user._id }, { mentor: req.user._id }]
+        })
             .sort({ createdAt: -1 })
             .populate("skill", "name category")
-            .populate("mentor", "name avatar");
+            .populate("mentor", "name avatar")
+            .populate("learner", "name avatar");
         res.json({ success: true, bookings });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
