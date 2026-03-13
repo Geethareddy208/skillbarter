@@ -57,6 +57,11 @@ io.on("connection", (socket) => {
         // Broadcast to others in the room
         socket.to(roomId).emit("user-connected", userId);
 
+        socket.on("peer-ready", (roomId, userId) => {
+            console.log(`📡 User ${userId} is peer-ready in room ${roomId}`);
+            socket.to(roomId).emit("peer-ready", userId);
+        });
+
         socket.on("disconnect", () => {
             console.log(`👤 User ${userId} left room ${roomId}`);
             socket.to(roomId).emit("user-disconnected", userId);

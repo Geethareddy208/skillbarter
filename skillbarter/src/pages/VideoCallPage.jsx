@@ -13,6 +13,8 @@ export default function VideoCallPage({ meetingId }) {
     const navigate = null; // Unused, app.navigate is used instead
 
     const [peerId, setPeerId] = useState("");
+    const [partnerReady, setPartnerReady] = useState(false);
+    const [retryCount, setRetryCount] = useState(0);
     const [callStatus, setCallStatus] = useState("Initializing...");
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
@@ -35,21 +37,30 @@ export default function VideoCallPage({ meetingId }) {
                     localVideoRef.current.srcObject = stream;
                 }
 
-                // 2. Initialize PeerJS
-                const peer = new Peer(app.user._id);
+                // 2. Initialize PeerJS with STUN servers for NAT traversal
+                const peer = new Peer(app.user._id, {
+                    config: {
+                        iceServers: [
+                            { urls: "stun:stun.l.google.com:19302" },
+                            { urls: "stun:stun1.l.google.com:19302" },
+                            { urls: "stun:stun2.l.google.com:19302" },
+                        ],
+                    },
+                });
 
                 peer.on("open", (id) => {
                     setPeerId(id);
                     console.log("My peer ID is: " + id);
                     
-                    // 3. Join Socket Room
+                    // 3. Join Socket Room and signal we are ready
                     app.socket.emit("join-room", meetingId, app.user._id);
+                    app.socket.emit("peer-ready", meetingId, app.user._id);
                     setCallStatus("Ready — Waiting for partner...");
                 });
 
                 peer.on("call", (call) => {
                     console.log("Incoming call from", call.peer);
-                    setCallStatus("Connecting...");
+                    setCallStatus("Connecting video...");
                     currentCallRef.current = call;
                     
                     call.answer(stream);
@@ -62,28 +73,43 @@ export default function VideoCallPage({ meetingId }) {
                         }
                     });
 
+                    call.on("error", (err) => {
+                        console.error("Call error:", err);
+                        setCallStatus("Connection failed");
+                    });
+
                     call.on("close", () => {
                         setCallStatus("Partner left");
                         if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+                        setPartnerReady(false);
                     });
                 });
 
                 // Listen for other users joining via Socket
                 app.socket.on("user-connected", (userId) => {
-                    console.log("User connected to room:", userId);
-                    setCallStatus("Establishing connection...");
+                    console.log("User joined room:", userId);
+                    // When someone joins, we tell them we are already ready if we are
+                    if (peer.open) {
+                        app.socket.emit("peer-ready", meetingId, app.user._id);
+                    }
+                });
+
+                app.socket.on("peer-ready", (userId) => {
+                    if (userId === app.user._id) return;
+                    console.log("Partner is ready:", userId);
+                    setPartnerReady(true);
+                    setCallStatus("Partner ready, connecting...");
                     
-                    // CRITICAL: Wait 1 second before initiating call
-                    // This gives the "newcomer" time to set up their own Peer instance
-                    // and 'call' listener.
+                    // Initiate call now that both are confirmed ready
                     setTimeout(() => {
                         initiateCall(peer, stream, userId);
-                    }, 1500);
+                    }, 1000);
                 });
 
                 app.socket.on("user-disconnected", (userId) => {
                     console.log("User disconnected from room:", userId);
-                    setCallStatus("Partner disconnected");
+                    setCallStatus("Partner left");
+                    setPartnerReady(false);
                     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
                 });
 
@@ -91,17 +117,18 @@ export default function VideoCallPage({ meetingId }) {
             })
             .catch((err) => {
                 console.error("Failed to get local stream", err);
-                setCallStatus("Error accessing camera/microphone");
+                setCallStatus("Error: Camera/Mic access denied");
             });
 
         return () => {
             endCall(false); // Clean up on unmount
             if (app.socket) {
                 app.socket.off("user-connected");
+                app.socket.off("peer-ready");
                 app.socket.off("user-disconnected");
             }
         };
-    }, [app.user, meetingId]);
+    }, [app.user, meetingId, retryCount]);
 
     const initiateCall = (peer, stream, remoteId) => {
         console.log("Initiating call to", remoteId);
@@ -253,6 +280,20 @@ export default function VideoCallPage({ meetingId }) {
                         backdropFilter: "blur(10px)"
                     }}>
                     {isVideoOff ? "🚫" : "📹"}
+                </button>
+                <button 
+                    onClick={() => setRetryCount(prev => prev + 1)}
+                    style={{ 
+                        width: 56, height: 56, borderRadius: "50%", 
+                        background: "rgba(255,255,255,0.2)", 
+                        color: "#FFF", border: "none", cursor: "pointer", 
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 24,
+                        backdropFilter: "blur(10px)"
+                    }}
+                    title="Refresh Connection"
+                >
+                    🔄
                 </button>
             </div>
         </div>
