@@ -26,7 +26,7 @@ export default function VideoCallPage({ meetingId }) {
     const currentCallRef = useRef(null);
 
     useEffect(() => {
-        if (!app.user || !meetingId) return;
+        if (!app.user || !meetingId || !app.socket) return;
 
         let heartbeatInterval = null;
         
@@ -36,6 +36,7 @@ export default function VideoCallPage({ meetingId }) {
                 localStreamRef.current = stream;
                 if (localVideoRef.current) {
                     localVideoRef.current.srcObject = stream;
+                    localVideoRef.current.play().catch(e => console.error("Local play fail", e));
                 }
 
                 // Cleanup any existing instance
@@ -43,8 +44,7 @@ export default function VideoCallPage({ meetingId }) {
                     peerInstance.current.destroy();
                 }
 
-                // 2. Initialize PeerJS with a TRULY unique ID to avoid collisions
-                // Format: userId_meetingId_randomString
+                // 2. Initialize PeerJS with a TRULY unique ID
                 const mySeed = Math.random().toString(36).substr(2, 6);
                 const myPeerId = `${app.user._id}_${meetingId}_${mySeed}`;
                 
@@ -57,7 +57,6 @@ export default function VideoCallPage({ meetingId }) {
                             { urls: "stun:stun3.l.google.com:19302" },
                         ],
                     },
-                    debug: 1 // Only errors
                 });
 
                 peer.on("open", (id) => {
@@ -66,11 +65,10 @@ export default function VideoCallPage({ meetingId }) {
                     
                     // 3. Join Socket Room and signal readiness
                     app.socket.emit("join-room", meetingId, app.user._id);
-                    app.socket.emit("peer-ready", meetingId, id);
                     
-                    // 4. Start Redundant Heartbeat
+                    // Start Heartbeat to signal presence
                     heartbeatInterval = setInterval(() => {
-                        if (!partnerReady) {
+                        if (!partnerReady && app.socket) {
                             app.socket.emit("peer-ready", meetingId, id);
                         }
                     }, 2000); 
@@ -84,7 +82,7 @@ export default function VideoCallPage({ meetingId }) {
                         setCallStatus("ID Collision — Retrying...");
                         setTimeout(() => setRetryCount(c => c + 1), 1000);
                     } else if (err.type === "peer-unavailable") {
-                        // Just wait for next heartbeat
+                        setCallStatus("Partner unavailable — Wait...");
                     } else {
                         setCallStatus(`Error: ${err.type}`);
                     }
@@ -92,7 +90,7 @@ export default function VideoCallPage({ meetingId }) {
 
                 peer.on("call", (call) => {
                     console.log("📞 Incoming call from partner");
-                    setCallStatus("Answering call...");
+                    setCallStatus("Connecting...");
                     currentCallRef.current = call;
                     
                     call.answer(stream);
@@ -100,14 +98,16 @@ export default function VideoCallPage({ meetingId }) {
                     call.on("stream", (userVideoStream) => {
                         console.log("✅ Remote stream linked");
                         setCallStatus("Connected");
+                        setPartnerReady(true);
                         if (remoteVideoRef.current) {
                             remoteVideoRef.current.srcObject = userVideoStream;
+                            remoteVideoRef.current.play().catch(e => console.error("Remote play fail", e));
                         }
                     });
 
                     call.on("error", (err) => {
                         console.error("Stream err:", err);
-                        setCallStatus("Video stream failed");
+                        setCallStatus("Stream sync issue");
                     });
 
                     call.on("close", () => {
@@ -121,27 +121,30 @@ export default function VideoCallPage({ meetingId }) {
                     if (remotePeerId === myPeerId) return;
                     if (partnerReady) return; 
 
-                    console.log("📡 Partner found at:", remotePeerId);
+                    console.log("📡 Partner ID received:", remotePeerId);
                     setPartnerReady(true);
-                    setCallStatus("Establishing encrypted line...");
+                    setCallStatus("Calling partner...");
                     
-                    // Always try to call if we hear from them
-                    // We add a slight delay based on UserID to avoid "simultaneous" calls
-                    const delay = app.user._id < (remotePeerId.split('_')[0]) ? 500 : 1500;
+                    // Coordinate: smallest user ID initiates
+                    const myUserId = app.user._id;
+                    const partnerUserId = remotePeerId.split('_')[0];
                     
-                    setTimeout(() => {
-                        initiateCall(peer, stream, remotePeerId);
-                    }, delay);
-                });
-
-                app.socket.on("user-connected", (userId) => {
-                    if (userId !== app.user._id && peer.open) {
-                        app.socket.emit("peer-ready", meetingId, myPeerId);
+                    if (myUserId < partnerUserId) {
+                        setTimeout(() => {
+                            initiateCall(peer, stream, remotePeerId);
+                        }, 500);
+                    } else {
+                        setCallStatus("Waiting for call...");
                     }
                 });
 
-                app.socket.on("user-disconnected", (userId) => {
-                    setCallStatus("Partner disconnected");
+                app.socket.on("user-connected", (uid) => {
+                    console.log("User joined room:", uid);
+                    if (peer.open) app.socket.emit("peer-ready", meetingId, myPeerId);
+                });
+
+                app.socket.on("user-disconnected", (uid) => {
+                    setCallStatus("Partner left");
                     setPartnerReady(false);
                     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
                 });
@@ -150,7 +153,7 @@ export default function VideoCallPage({ meetingId }) {
             })
             .catch((err) => {
                 console.error("Failed to get local stream", err);
-                setCallStatus("Error: No camera access");
+                setCallStatus("Permission denied");
             });
 
         return () => {
@@ -162,7 +165,7 @@ export default function VideoCallPage({ meetingId }) {
                 app.socket.off("user-disconnected");
             }
         };
-    }, [app.user._id, meetingId, retryCount]);
+    }, [app.user?._id, meetingId, retryCount, app.socket]);
 
     const initiateCall = (peer, stream, remoteId) => {
         console.log("Initiating call to", remoteId);
