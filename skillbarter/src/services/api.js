@@ -106,6 +106,8 @@ export const walletAPI = {
             method: "POST",
             body: JSON.stringify({ recipientId, amount, description }),
         }),
+
+    bonus: () => apiFetch("/wallet/bonus", { method: "POST" }),
 };
 
 // ── Messages ──────────────────────────────────

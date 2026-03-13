@@ -96,4 +96,34 @@ router.post("/transfer", protect, async (req, res) => {
     }
 });
 
+// ── POST claim beta bonus ─────────────────────
+router.post("/bonus", protect, async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+        
+        // Safety check: Only allow if credits are low (under 1)
+        if (user.credits >= 1) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "You still have credits! Share a skill to earn more, or wait until you hit 0." 
+            });
+        }
+
+        const bonusAmount = 5;
+        user.credits = parseFloat((user.credits + bonusAmount).toFixed(2));
+        await user.save();
+
+        await Transaction.create({
+            user: user._id,
+            type: "bonus",
+            description: "Beta Tester Bonus — Happy Swapping!",
+            credits: bonusAmount
+        });
+
+        res.json({ success: true, newBalance: user.credits });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 module.exports = router;
