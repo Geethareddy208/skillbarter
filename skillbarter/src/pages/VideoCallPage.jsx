@@ -43,8 +43,11 @@ export default function VideoCallPage({ meetingId }) {
                     peerInstance.current.destroy();
                 }
 
-                // 2. Initialize PeerJS with a session-specific ID
-                const myPeerId = `${app.user._id}_${meetingId}`;
+                // 2. Initialize PeerJS with a TRULY unique ID to avoid collisions
+                // Format: userId_meetingId_randomString
+                const mySeed = Math.random().toString(36).substr(2, 6);
+                const myPeerId = `${app.user._id}_${meetingId}_${mySeed}`;
+                
                 const peer = new Peer(myPeerId, {
                     config: {
                         iceServers: [
@@ -54,17 +57,18 @@ export default function VideoCallPage({ meetingId }) {
                             { urls: "stun:stun3.l.google.com:19302" },
                         ],
                     },
+                    debug: 1 // Only errors
                 });
 
                 peer.on("open", (id) => {
                     setPeerId(id);
-                    console.log("My Peer ID is: " + id);
+                    console.log("🚀 My Virtual Session ID:", id);
                     
-                    // 3. Join Socket Room and signal readiness with FULL Peer ID
+                    // 3. Join Socket Room and signal readiness
                     app.socket.emit("join-room", meetingId, app.user._id);
                     app.socket.emit("peer-ready", meetingId, id);
                     
-                    // 4. Start Heartbeat to overcome race conditions
+                    // 4. Start Redundant Heartbeat
                     heartbeatInterval = setInterval(() => {
                         if (!partnerReady) {
                             app.socket.emit("peer-ready", meetingId, id);
@@ -75,25 +79,26 @@ export default function VideoCallPage({ meetingId }) {
                 });
 
                 peer.on("error", (err) => {
-                    console.error("PeerJS Error:", err.type, err);
+                    console.error("❌ PeerJS Error:", err.type, err);
                     if (err.type === "unavailable-id") {
-                        setCallStatus("Error: Session ID taken (check other tabs)");
+                        setCallStatus("ID Collision — Retrying...");
+                        setTimeout(() => setRetryCount(c => c + 1), 1000);
                     } else if (err.type === "peer-unavailable") {
-                        // ignore, we'll retry via heartbeat
+                        // Just wait for next heartbeat
                     } else {
                         setCallStatus(`Error: ${err.type}`);
                     }
                 });
 
                 peer.on("call", (call) => {
-                    console.log("Incoming call from", call.peer);
-                    setCallStatus("Connecting video...");
+                    console.log("📞 Incoming call from partner");
+                    setCallStatus("Answering call...");
                     currentCallRef.current = call;
                     
                     call.answer(stream);
                     
                     call.on("stream", (userVideoStream) => {
-                        console.log("Remote stream received");
+                        console.log("✅ Remote stream linked");
                         setCallStatus("Connected");
                         if (remoteVideoRef.current) {
                             remoteVideoRef.current.srcObject = userVideoStream;
@@ -101,8 +106,8 @@ export default function VideoCallPage({ meetingId }) {
                     });
 
                     call.on("error", (err) => {
-                        console.error("Call error:", err);
-                        setCallStatus("Stream failed");
+                        console.error("Stream err:", err);
+                        setCallStatus("Video stream failed");
                     });
 
                     call.on("close", () => {
@@ -112,32 +117,31 @@ export default function VideoCallPage({ meetingId }) {
                     });
                 });
 
-                app.socket.on("user-connected", (userId) => {
-                    console.log("User joined room:", userId);
-                    if (peer.open) {
-                        app.socket.emit("peer-ready", meetingId, myPeerId);
-                    }
-                });
-
                 app.socket.on("peer-ready", (remotePeerId) => {
                     if (remotePeerId === myPeerId) return;
                     if (partnerReady) return; 
 
-                    console.log("Partner Peer is ready:", remotePeerId);
+                    console.log("📡 Partner found at:", remotePeerId);
                     setPartnerReady(true);
-                    setCallStatus("Partner found, connecting...");
+                    setCallStatus("Establishing encrypted line...");
                     
-                    // Coordinate: "smaller" Peer ID initiates the call
-                    if (myPeerId < remotePeerId) {
-                        setTimeout(() => {
-                            initiateCall(peer, stream, remotePeerId);
-                        }, 500);
+                    // Always try to call if we hear from them
+                    // We add a slight delay based on UserID to avoid "simultaneous" calls
+                    const delay = app.user._id < (remotePeerId.split('_')[0]) ? 500 : 1500;
+                    
+                    setTimeout(() => {
+                        initiateCall(peer, stream, remotePeerId);
+                    }, delay);
+                });
+
+                app.socket.on("user-connected", (userId) => {
+                    if (userId !== app.user._id && peer.open) {
+                        app.socket.emit("peer-ready", meetingId, myPeerId);
                     }
                 });
 
                 app.socket.on("user-disconnected", (userId) => {
-                    console.log("User disconnected from room:", userId);
-                    setCallStatus("Partner left");
+                    setCallStatus("Partner disconnected");
                     setPartnerReady(false);
                     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
                 });
@@ -146,7 +150,7 @@ export default function VideoCallPage({ meetingId }) {
             })
             .catch((err) => {
                 console.error("Failed to get local stream", err);
-                setCallStatus("Error: Camera/Mic blocked");
+                setCallStatus("Error: No camera access");
             });
 
         return () => {
