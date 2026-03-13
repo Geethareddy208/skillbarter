@@ -168,7 +168,7 @@ export default function BookingPage() {
                             </div>
                             <div>
                                 <div style={{ fontWeight: 600, color: t.textPrimary, marginBottom: 12, fontSize: 14 }}>Available Times</div>
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
                                     {TIMES.map((tm) => (
                                         <div key={tm} onClick={() => setTime(tm)} className={`time-slot ${time === tm ? "selected" : ""}`}
                                             style={{ padding: "10px", textAlign: "center", border: `1.5px solid ${t.cardBorder}`, fontSize: 13, color: t.textPrimary, borderRadius: 8, cursor: "pointer", background: time === tm ? "#FFD600" : "transparent" }}>
@@ -176,8 +176,49 @@ export default function BookingPage() {
                                         </div>
                                     ))}
                                 </div>
+
+                                <div style={{ height: 1, background: t.cardBorder, marginBottom: 20 }} />
+
+                                <div style={{ fontWeight: 600, color: t.textPrimary, marginBottom: 12, fontSize: 14 }}>Or Set Custom Time</div>
+                                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                    <select 
+                                        value={time?.split(':')[0] || "10"} 
+                                        onChange={(e) => {
+                                            const mins = (time?.split(':')[1] || "00 AM").split(' ')[0];
+                                            const period = time?.split(' ')[1] || "AM";
+                                            setTime(`${e.target.value}:${mins} ${period}`);
+                                        }}
+                                        style={{ flex: 1, padding: "10px", borderRadius: 8, border: `1.5px solid ${t.cardBorder}`, background: t.cardBg, color: t.textPrimary }}
+                                    >
+                                        {Array.from({ length: 12 }, (_, i) => i + 1).map(h => <option key={h} value={h}>{h}</option>)}
+                                    </select>
+                                    <span style={{ color: t.textSecondary }}>:</span>
+                                    <select 
+                                        value={(time?.split(':')[1] || "00").split(' ')[0]} 
+                                        onChange={(e) => {
+                                            const hour = time?.split(':')[0] || "10";
+                                            const period = time?.split(' ')[1] || "AM";
+                                            setTime(`${hour}:${e.target.value} ${period}`);
+                                        }}
+                                        style={{ flex: 1, padding: "10px", borderRadius: 8, border: `1.5px solid ${t.cardBorder}`, background: t.cardBg, color: t.textPrimary }}
+                                    >
+                                        {["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"].map(m => <option key={m} value={m}>{m}</option>)}
+                                    </select>
+                                    <select 
+                                        value={time?.split(' ')[1] || "AM"} 
+                                        onChange={(e) => {
+                                            const base = time?.split(' ')[0] || "10:00";
+                                            setTime(`${base} ${e.target.value}`);
+                                        }}
+                                        style={{ flex: 1, padding: "10px", borderRadius: 8, border: `1.5px solid ${t.cardBorder}`, background: t.cardBg, color: t.textPrimary }}
+                                    >
+                                        <option value="AM">AM</option>
+                                        <option value="PM">PM</option>
+                                    </select>
+                                </div>
+
                                 {selectedDate && time && (
-                                    <button className="btn-yellow" onClick={() => setStep(3)} style={{ width: "100%", padding: "12px", borderRadius: 12, fontSize: 14, marginTop: 16 }}>Next →</button>
+                                    <button className="btn-yellow" onClick={() => setStep(3)} style={{ width: "100%", padding: "12px", borderRadius: 12, fontSize: 14, marginTop: 24 }}>Next →</button>
                                 )}
                             </div>
                         </div>
