@@ -51,13 +51,14 @@ io.on("connection", (socket) => {
 
     // WebRTC Room Signaling
     socket.on("join-room", (roomId, userId) => {
-        console.log(`👤 User ${userId} joining room ${roomId}`);
+        console.log(`👤 User ${userId} joining room ${roomId} (Socket: ${socket.id})`);
         socket.join(roomId);
-        // Tell everyone else in the room that this user connected
+        
+        // Broadcast to others in the room
         socket.to(roomId).emit("user-connected", userId);
 
         socket.on("disconnect", () => {
-            console.log(`👤 User ${userId} disconnected from room ${roomId}`);
+            console.log(`👤 User ${userId} left room ${roomId}`);
             socket.to(roomId).emit("user-disconnected", userId);
         });
     });

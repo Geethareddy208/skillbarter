@@ -44,17 +44,19 @@ export default function VideoCallPage({ meetingId }) {
                     
                     // 3. Join Socket Room
                     app.socket.emit("join-room", meetingId, app.user._id);
-                    setCallStatus("Waiting for partner...");
+                    setCallStatus("Ready — Waiting for partner...");
                 });
 
                 peer.on("call", (call) => {
                     console.log("Incoming call from", call.peer);
-                    setCallStatus("Connected");
+                    setCallStatus("Connecting...");
                     currentCallRef.current = call;
                     
                     call.answer(stream);
                     
                     call.on("stream", (userVideoStream) => {
+                        console.log("Remote stream received");
+                        setCallStatus("Connected");
                         if (remoteVideoRef.current) {
                             remoteVideoRef.current.srcObject = userVideoStream;
                         }
@@ -69,8 +71,14 @@ export default function VideoCallPage({ meetingId }) {
                 // Listen for other users joining via Socket
                 app.socket.on("user-connected", (userId) => {
                     console.log("User connected to room:", userId);
-                    // If someone joins, we (the person already in the room) initiate the call
-                    initiateCall(peer, stream, userId);
+                    setCallStatus("Establishing connection...");
+                    
+                    // CRITICAL: Wait 1 second before initiating call
+                    // This gives the "newcomer" time to set up their own Peer instance
+                    // and 'call' listener.
+                    setTimeout(() => {
+                        initiateCall(peer, stream, userId);
+                    }, 1500);
                 });
 
                 app.socket.on("user-disconnected", (userId) => {

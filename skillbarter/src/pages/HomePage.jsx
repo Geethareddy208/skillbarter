@@ -151,20 +151,28 @@ export default function HomePage() {
                                         {b.status}
                                     </span>
                                     {b.meetingId && (
-                                        <button
-                                            onClick={() => app.navigate(`call/${b.meetingId}`, {
-                                                state: {
-                                                    meetingId: b.meetingId,
-                                                }
-                                            })}
-                                            className="btn-yellow"
-                                            style={{
-                                                padding: "6px 12px", borderRadius: 8, fontSize: 12,
-                                                fontWeight: 600, border: "none", cursor: "pointer"
-                                            }}
-                                        >
-                                            Join Meeting
-                                        </button>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                            <button
+                                                onClick={() => isJoinable(b.date, b.time) && app.navigate(`call/${b.meetingId}`)}
+                                                className={isJoinable(b.date, b.time) ? "btn-yellow" : "btn-outline"}
+                                                disabled={!isJoinable(b.date, b.time)}
+                                                style={{
+                                                    padding: "6px 12px", borderRadius: 8, fontSize: 12,
+                                                    fontWeight: 600, border: "none", 
+                                                    cursor: isJoinable(b.date, b.time) ? "pointer" : "not-allowed",
+                                                    opacity: isJoinable(b.date, b.time) ? 1 : 0.5,
+                                                    background: isJoinable(b.date, b.time) ? "#FFD600" : (t.dark ? "#2A2A2A" : "#E8E8E0"),
+                                                    color: isJoinable(b.date, b.time) ? "#0A0A0A" : t.textSecondary
+                                                }}
+                                            >
+                                                {isJoinable(b.date, b.time) ? "Join Meeting" : "Scheduled"}
+                                            </button>
+                                            {!isJoinable(b.date, b.time) && (
+                                                <div style={{ fontSize: 9, color: t.textSecondary, textAlign: "center" }}>
+                                                    Available at {b.time}
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -275,6 +283,24 @@ export default function HomePage() {
             </div>
         </div>
     );
+}
+
+function isJoinable(dateStr, timeStr) {
+    try {
+        // dateStr: "March 13, 2026"
+        // timeStr: "9:00 AM" or "10:00 AM"
+        const combined = `${dateStr} ${timeStr}`;
+        const sessionDate = new Date(combined);
+        const now = new Date();
+
+        // Joinable from 15 mins before until 90 mins after
+        const diffMs = sessionDate - now;
+        const diffMins = diffMs / (1000 * 60);
+
+        return diffMins <= 15 && diffMins >= -90;
+    } catch (e) {
+        return false;
+    }
 }
 
 function EmptyState({ icon, title, sub, t }) {
