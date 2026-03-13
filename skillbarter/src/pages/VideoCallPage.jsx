@@ -63,9 +63,18 @@ export default function VideoCallPage({ meetingId }) {
                         if (!partnerReady) {
                             app.socket.emit("peer-ready", meetingId, app.user._id);
                         }
-                    }, 3000);
+                    }, 2000); // Speed up heartbeat to 2s
 
                     setCallStatus("Ready — Waiting for partner...");
+                });
+
+                peer.on("error", (err) => {
+                    console.error("PeerJS Error:", err.type, err);
+                    if (err.type === "unavailable-id") {
+                        setCallStatus("Error: Already logged in elsewhere");
+                    } else {
+                        setCallStatus(`Connection Error: ${err.type}`);
+                    }
                 });
 
                 peer.on("call", (call) => {
@@ -85,7 +94,7 @@ export default function VideoCallPage({ meetingId }) {
 
                     call.on("error", (err) => {
                         console.error("Call error:", err);
-                        setCallStatus("Connection failed");
+                        setCallStatus("Stream failed");
                     });
 
                     call.on("close", () => {
@@ -101,17 +110,24 @@ export default function VideoCallPage({ meetingId }) {
                 });
 
                 app.socket.on("peer-ready", (userId) => {
-                    if (userId === app.user._id) return;
+                    if (userId === app.user._id) {
+                        // If we see our own ID as "ready" from someone else, they are using our account!
+                        // This usually won't happen because socket.to() excludes sender,
+                        // but if they have two tabs open, it's a good diagnostic.
+                        return;
+                    }
                     if (partnerReady) return; // Already connected
 
                     console.log("Partner is ready:", userId);
                     setPartnerReady(true);
-                    setCallStatus("Partner ready, joining...");
+                    setCallStatus("Partner found, connecting...");
                     
-                    // Initiate call now that both are confirmed ready
-                    setTimeout(() => {
-                        initiateCall(peer, stream, userId);
-                    }, 500);
+                    // The "smaller" ID initiates the call to avoid collisions
+                    if (app.user._id < userId) {
+                        setTimeout(() => {
+                            initiateCall(peer, stream, userId);
+                        }, 500);
+                    }
                 });
 
                 app.socket.on("user-disconnected", (userId) => {
@@ -125,7 +141,7 @@ export default function VideoCallPage({ meetingId }) {
             })
             .catch((err) => {
                 console.error("Failed to get local stream", err);
-                setCallStatus("Error: Camera/Mic permission denied");
+                setCallStatus("Error: Camera/Mic blocked");
             });
 
         return () => {
