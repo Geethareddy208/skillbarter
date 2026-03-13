@@ -243,3 +243,24 @@ export default function VideoCallPage({ meetingId }) {
         </div>
     );
 }
+
+function ControlBtn({ onClick, icon, color, size = 52, active = true }) {
+    return (
+        <button 
+            onClick={onClick}
+            style={{ 
+                width: size, height: size, borderRadius: "50%", 
+                background: color, color: "#FFF", border: "none", cursor: "pointer", 
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: size * 0.4, backdropFilter: "blur(12px)",
+                transition: "all 0.2s",
+                boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
+                opacity: active ? 1 : 0.8
+            }}
+            onMouseEnter={e => e.currentTarget.style.transform = "scale(1.1)"}
+            onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+        >
+            {icon}
+        </button>
+    );
+}
