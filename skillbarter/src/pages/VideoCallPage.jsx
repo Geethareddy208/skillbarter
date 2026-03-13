@@ -29,7 +29,7 @@ export default function VideoCallPage({ meetingId }) {
         if (!app.user || !meetingId) return;
 
         let heartbeatInterval = null;
-
+        
         // 1. Get local media
         navigator.mediaDevices.getUserMedia({ video: true, audio: true })
             .then((stream) => {
@@ -38,8 +38,14 @@ export default function VideoCallPage({ meetingId }) {
                     localVideoRef.current.srcObject = stream;
                 }
 
-                // 2. Initialize PeerJS with multiple STUN servers
-                const peer = new Peer(app.user._id, {
+                // Cleanup any existing instance
+                if (peerInstance.current) {
+                    peerInstance.current.destroy();
+                }
+
+                // 2. Initialize PeerJS with a session-specific ID
+                const myPeerId = `${app.user._id}_${meetingId}`;
+                const peer = new Peer(myPeerId, {
                     config: {
                         iceServers: [
                             { urls: "stun:stun.l.google.com:19302" },
@@ -52,18 +58,18 @@ export default function VideoCallPage({ meetingId }) {
 
                 peer.on("open", (id) => {
                     setPeerId(id);
-                    console.log("My peer ID is: " + id);
+                    console.log("My Peer ID is: " + id);
                     
-                    // 3. Join Socket Room and signal readiness
+                    // 3. Join Socket Room and signal readiness with FULL Peer ID
                     app.socket.emit("join-room", meetingId, app.user._id);
-                    app.socket.emit("peer-ready", meetingId, app.user._id);
+                    app.socket.emit("peer-ready", meetingId, id);
                     
                     // 4. Start Heartbeat to overcome race conditions
                     heartbeatInterval = setInterval(() => {
                         if (!partnerReady) {
-                            app.socket.emit("peer-ready", meetingId, app.user._id);
+                            app.socket.emit("peer-ready", meetingId, id);
                         }
-                    }, 2000); // Speed up heartbeat to 2s
+                    }, 2000); 
 
                     setCallStatus("Ready — Waiting for partner...");
                 });
@@ -71,9 +77,11 @@ export default function VideoCallPage({ meetingId }) {
                 peer.on("error", (err) => {
                     console.error("PeerJS Error:", err.type, err);
                     if (err.type === "unavailable-id") {
-                        setCallStatus("Error: Already logged in elsewhere");
+                        setCallStatus("Error: Session ID taken (check other tabs)");
+                    } else if (err.type === "peer-unavailable") {
+                        // ignore, we'll retry via heartbeat
                     } else {
-                        setCallStatus(`Connection Error: ${err.type}`);
+                        setCallStatus(`Error: ${err.type}`);
                     }
                 });
 
@@ -106,26 +114,23 @@ export default function VideoCallPage({ meetingId }) {
 
                 app.socket.on("user-connected", (userId) => {
                     console.log("User joined room:", userId);
-                    if (peer.open) app.socket.emit("peer-ready", meetingId, app.user._id);
+                    if (peer.open) {
+                        app.socket.emit("peer-ready", meetingId, myPeerId);
+                    }
                 });
 
-                app.socket.on("peer-ready", (userId) => {
-                    if (userId === app.user._id) {
-                        // If we see our own ID as "ready" from someone else, they are using our account!
-                        // This usually won't happen because socket.to() excludes sender,
-                        // but if they have two tabs open, it's a good diagnostic.
-                        return;
-                    }
-                    if (partnerReady) return; // Already connected
+                app.socket.on("peer-ready", (remotePeerId) => {
+                    if (remotePeerId === myPeerId) return;
+                    if (partnerReady) return; 
 
-                    console.log("Partner is ready:", userId);
+                    console.log("Partner Peer is ready:", remotePeerId);
                     setPartnerReady(true);
                     setCallStatus("Partner found, connecting...");
                     
-                    // The "smaller" ID initiates the call to avoid collisions
-                    if (app.user._id < userId) {
+                    // Coordinate: "smaller" Peer ID initiates the call
+                    if (myPeerId < remotePeerId) {
                         setTimeout(() => {
-                            initiateCall(peer, stream, userId);
+                            initiateCall(peer, stream, remotePeerId);
                         }, 500);
                     }
                 });
