@@ -108,75 +108,95 @@ export default function HomePage() {
                                 sub="Head to the marketplace to book your first session"
                                 t={t}
                             />
-                        ) : upcoming.map((b) => (
-                            <div key={b._id} style={{
-                                background: t.cardBg,
-                                border: `1px solid ${t.cardBorder}`,
-                                borderRadius: 16,
-                                padding: "18px 24px",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                transition: "all 0.25s",
-                            }}
-                                onMouseEnter={e => e.currentTarget.style.boxShadow = `0 8px 24px rgba(0,0,0,0.12)`}
-                                onMouseLeave={e => e.currentTarget.style.boxShadow = "none"}
-                            >
-                                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                        ) : (
+                            <>
+                                {upcoming.some(b => isMissed(b.date, b.time)) && (
                                     <div style={{
-                                        width: 46, height: 46, borderRadius: "50%",
-                                        background: "linear-gradient(135deg,#FFD600,#F0C800)",
-                                        display: "flex", alignItems: "center", justifyContent: "center",
-                                        fontWeight: 700, fontSize: 14, color: "#0A0A0A",
-                                        boxShadow: "0 4px 12px rgba(255,214,0,0.3)",
+                                        background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)",
+                                        borderRadius: 12, padding: "12px 16px", color: "#EF4444",
+                                        fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 10
                                     }}>
-                                        {b.mentor?.avatar || b.mentorAvatar || "??"}
+                                        <span>⚠️</span>
+                                        <span>You missed a scheduled session. Meeting access is no longer available.</span>
                                     </div>
-                                    <div>
-                                        <div style={{ fontWeight: 600, color: t.textPrimary, fontSize: 15 }}>{b.skillName}</div>
-                                        <div style={{ fontSize: 13, color: t.textSecondary }}>with {b.mentorName}</div>
-                                    </div>
-                                </div>
-                                <div style={{ textAlign: "right" }}>
-                                    <div style={{ fontWeight: 600, color: t.textPrimary, fontSize: 14 }}>{b.date} · {b.time}</div>
-                                    <div style={{ fontSize: 12, color: "#FFD600", fontWeight: 600, marginTop: 2 }}>{b.sessionType}</div>
-                                </div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginLeft: 16 }}>
-                                    <span style={{
-                                        padding: "4px 12px", borderRadius: 99, textAlign: "center",
-                                        background: b.status === "confirmed" ? "rgba(16,185,129,0.12)" : "rgba(255,214,0,0.12)",
-                                        color: b.status === "confirmed" ? "#10B981" : "#FFD600",
-                                        fontSize: 11, fontWeight: 600, textTransform: "capitalize",
-                                    }}>
-                                        {b.status}
-                                    </span>
-                                    {b.meetingId && (
-                                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                            <button
-                                                onClick={() => isJoinable(b.date, b.time) && app.navigate(`call/${b.meetingId}`)}
-                                                className={isJoinable(b.date, b.time) ? "btn-yellow" : "btn-outline"}
-                                                disabled={!isJoinable(b.date, b.time)}
-                                                style={{
-                                                    padding: "6px 12px", borderRadius: 8, fontSize: 12,
-                                                    fontWeight: 600, border: "none", 
-                                                    cursor: isJoinable(b.date, b.time) ? "pointer" : "not-allowed",
-                                                    opacity: isJoinable(b.date, b.time) ? 1 : 0.5,
-                                                    background: isJoinable(b.date, b.time) ? "#FFD600" : (t.dark ? "#2A2A2A" : "#E8E8E0"),
-                                                    color: isJoinable(b.date, b.time) ? "#0A0A0A" : t.textSecondary
-                                                }}
-                                            >
-                                                {isJoinable(b.date, b.time) ? "Join Meeting" : "Scheduled"}
-                                            </button>
-                                            {!isJoinable(b.date, b.time) && (
-                                                <div style={{ fontSize: 9, color: t.textSecondary, textAlign: "center" }}>
-                                                    Available at {b.time}
+                                )}
+                                {upcoming.map((b) => {
+                                    const missed = isMissed(b.date, b.time);
+                                    const joinable = isJoinable(b.date, b.time);
+                                    
+                                    return (
+                                        <div key={b._id} style={{
+                                            background: t.cardBg,
+                                            border: `1px solid ${t.cardBorder}`,
+                                            borderRadius: 16,
+                                            padding: "18px 24px",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "space-between",
+                                            transition: "all 0.25s",
+                                            opacity: missed ? 0.7 : 1
+                                        }}
+                                            onMouseEnter={e => !missed && (e.currentTarget.style.boxShadow = `0 8px 24px rgba(0,0,0,0.12)`)}
+                                            onMouseLeave={e => !missed && (e.currentTarget.style.boxShadow = "none")}
+                                        >
+                                            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                                                <div style={{
+                                                    width: 46, height: 46, borderRadius: "50%",
+                                                    background: missed ? "#6B7280" : "linear-gradient(135deg,#FFD600,#F0C800)",
+                                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                                    fontWeight: 700, fontSize: 14, color: missed ? "#FFF" : "#0A0A0A",
+                                                    boxShadow: missed ? "none" : "0 4px 12px rgba(255,214,0,0.3)",
+                                                }}>
+                                                    {b.mentor?.avatar || b.mentorAvatar || "??"}
                                                 </div>
-                                            )}
+                                                <div>
+                                                    <div style={{ fontWeight: 600, color: t.textPrimary, fontSize: 15 }}>{b.skillName}</div>
+                                                    <div style={{ fontSize: 13, color: t.textSecondary }}>with {b.mentorName}</div>
+                                                </div>
+                                            </div>
+                                            <div style={{ textAlign: "right" }}>
+                                                <div style={{ fontWeight: 600, color: t.textPrimary, fontSize: 14 }}>{b.date} · {b.time}</div>
+                                                <div style={{ fontSize: 12, color: missed ? t.textSecondary : "#FFD600", fontWeight: 600, marginTop: 2 }}>{b.sessionType}</div>
+                                            </div>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginLeft: 16, alignItems: "flex-end" }}>
+                                                <span style={{
+                                                    padding: "4px 12px", borderRadius: 99, textAlign: "center",
+                                                    background: missed ? "rgba(239,68,68,0.12)" : (b.status === "confirmed" ? "rgba(16,185,129,0.12)" : "rgba(255,214,0,0.12)"),
+                                                    color: missed ? "#EF4444" : (b.status === "confirmed" ? "#10B981" : "#FFD600"),
+                                                    fontSize: 11, fontWeight: 700, textTransform: "capitalize",
+                                                }}>
+                                                    {missed ? "Missed" : b.status}
+                                                </span>
+                                                {b.meetingId && !missed && (
+                                                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                                        <button
+                                                            onClick={() => joinable && app.navigate(`call/${b.meetingId}`)}
+                                                            className={joinable ? "btn-yellow" : "btn-outline"}
+                                                            disabled={!joinable}
+                                                            style={{
+                                                                padding: "6px 12px", borderRadius: 8, fontSize: 12,
+                                                                fontWeight: 600, border: "none", 
+                                                                cursor: joinable ? "pointer" : "not-allowed",
+                                                                opacity: joinable ? 1 : 0.5,
+                                                                background: joinable ? "#FFD600" : (t.dark ? "#2A2A2A" : "#E8E8E0"),
+                                                                color: joinable ? "#0A0A0A" : t.textSecondary
+                                                            }}
+                                                        >
+                                                            {joinable ? "Join Meeting" : "Scheduled"}
+                                                        </button>
+                                                        {!joinable && (
+                                                            <div style={{ fontSize: 9, color: t.textSecondary, textAlign: "center" }}>
+                                                                Available at {b.time}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
+                                    );
+                                })}
+                            </>
+                        )}
                     </div>
 
                     {/* Learning Progress */}
@@ -287,17 +307,23 @@ export default function HomePage() {
 
 function isJoinable(dateStr, timeStr) {
     try {
-        // dateStr: "March 13, 2026"
-        // timeStr: "9:00 AM" or "10:00 AM"
         const combined = `${dateStr} ${timeStr}`;
         const sessionDate = new Date(combined);
         const now = new Date();
-
-        // Joinable from 15 mins before until 90 mins after
-        const diffMs = sessionDate - now;
-        const diffMins = diffMs / (1000 * 60);
-
+        const diffMins = (sessionDate - now) / (1000 * 60);
         return diffMins <= 15 && diffMins >= -90;
+    } catch (e) {
+        return false;
+    }
+}
+
+function isMissed(dateStr, timeStr) {
+    try {
+        const combined = `${dateStr} ${timeStr}`;
+        const sessionDate = new Date(combined);
+        const now = new Date();
+        const diffMins = (sessionDate - now) / (1000 * 60);
+        return diffMins < -90;
     } catch (e) {
         return false;
     }
