@@ -56,6 +56,13 @@ router.post("/", protect, async (req, res) => {
         skill.sessions += 1;
         await skill.save();
 
+        // Generate meetingId for video and group sessions
+        let meetingId = undefined;
+        if (sessionType === "1-on-1 Video Call" || sessionType === "Group Session") {
+            const crypto = require("crypto");
+            meetingId = crypto.randomUUID();
+        }
+
         // Create booking
         const booking = await Booking.create({
             learner: learner._id,
@@ -69,6 +76,7 @@ router.post("/", protect, async (req, res) => {
             sessionType: sessionType || "1-on-1 Video Call",
             creditsCost,
             notes: notes || "",
+            meetingId,
         });
 
         // Log transactions for both parties

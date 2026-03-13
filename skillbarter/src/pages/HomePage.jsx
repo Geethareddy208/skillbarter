@@ -141,14 +141,32 @@ export default function HomePage() {
                                     <div style={{ fontWeight: 600, color: t.textPrimary, fontSize: 14 }}>{b.date} · {b.time}</div>
                                     <div style={{ fontSize: 12, color: "#FFD600", fontWeight: 600, marginTop: 2 }}>{b.sessionType}</div>
                                 </div>
-                                <span style={{
-                                    marginLeft: 16, padding: "4px 12px", borderRadius: 99,
-                                    background: b.status === "confirmed" ? "rgba(16,185,129,0.12)" : "rgba(255,214,0,0.12)",
-                                    color: b.status === "confirmed" ? "#10B981" : "#FFD600",
-                                    fontSize: 11, fontWeight: 600, textTransform: "capitalize",
-                                }}>
-                                    {b.status}
-                                </span>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginLeft: 16 }}>
+                                    <span style={{
+                                        padding: "4px 12px", borderRadius: 99, textAlign: "center",
+                                        background: b.status === "confirmed" ? "rgba(16,185,129,0.12)" : "rgba(255,214,0,0.12)",
+                                        color: b.status === "confirmed" ? "#10B981" : "#FFD600",
+                                        fontSize: 11, fontWeight: 600, textTransform: "capitalize",
+                                    }}>
+                                        {b.status}
+                                    </span>
+                                    {b.meetingId && (
+                                        <button
+                                            onClick={() => app.navigate(`call/${b.meetingId}`, {
+                                                state: {
+                                                    meetingId: b.meetingId,
+                                                }
+                                            })}
+                                            className="btn-yellow"
+                                            style={{
+                                                padding: "6px 12px", borderRadius: 8, fontSize: 12,
+                                                fontWeight: 600, border: "none", cursor: "pointer"
+                                            }}
+                                        >
+                                            Join Meeting
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </div>

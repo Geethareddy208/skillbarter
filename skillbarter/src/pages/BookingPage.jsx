@@ -9,7 +9,6 @@ import { skillsAPI, bookingsAPI } from "../services/api";
 
 const STEPS = ["Choose Mentor", "Pick Date & Time", "Session Type", "Confirm"];
 const TIMES = ["9:00 AM", "10:00 AM", "11:00 AM", "2:00 PM", "3:00 PM", "4:00 PM", "6:00 PM", "7:00 PM"];
-const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 const TYPES = [
     { ic: "🎥", title: "1-on-1 Video Call", sub: "Private session via video", cr: 1 },
     { ic: "👥", title: "Group Session", sub: "Learn with 2–5 others", cr: 0.5 },
@@ -24,7 +23,12 @@ export default function BookingPage() {
     const [step, setStep] = useState(1);
     const [skills, setSkills] = useState([]);
     const [selected, setSelected] = useState(null);
-    const [date, setDate] = useState(null);
+    
+    // Dynamic Date state
+    const today = new Date();
+    const [viewDate, setViewDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+    const [selectedDate, setSelectedDate] = useState(null);
+    
     const [time, setTime] = useState(null);
     const [sessionType, setSessionType] = useState(null);
     const [booking, setBooking] = useState(null);
@@ -36,13 +40,13 @@ export default function BookingPage() {
     }, []);
 
     const confirm = async () => {
-        if (!selected || !date || !time || !sessionType) return;
+        if (!selected || !selectedDate || !time || !sessionType) return;
         setSubmitting(true);
         setError(null);
         try {
             const data = await bookingsAPI.create({
                 skillId: selected._id,
-                date: `March ${date}, 2026`,
+                date: selectedDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
                 time,
                 sessionType: sessionType.title,
             });
@@ -53,6 +57,27 @@ export default function BookingPage() {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    // Calendar Helpers
+    const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+    const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
+    
+    const changeMonth = (offset) => {
+        const newDate = new Date(viewDate.getFullYear(), viewDate.getMonth() + offset, 1);
+        setViewDate(newDate);
+    };
+
+    const isPastDay = (day) => {
+        const d = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
+        return d < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    };
+
+    const isSelected = (day) => {
+        return selectedDate && 
+               selectedDate.getDate() === day && 
+               selectedDate.getMonth() === viewDate.getMonth() && 
+               selectedDate.getFullYear() === viewDate.getFullYear();
     };
 
     return (
@@ -105,18 +130,40 @@ export default function BookingPage() {
                         <div style={{ fontFamily: "'Playfair Display',sans-serif", fontWeight: 700, fontSize: 18, color: t.textPrimary, marginBottom: 20 }}>Select Date & Time</div>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28 }}>
                             <div>
-                                <div style={{ fontWeight: 600, color: t.textPrimary, marginBottom: 12, fontSize: 14 }}>March 2026</div>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                                    <button onClick={() => changeMonth(-1)} style={{ border: "none", background: "none", color: "#FFD600", cursor: "pointer", fontWeight: "bold" }}>←</button>
+                                    <div style={{ fontWeight: 700, color: t.textPrimary, fontSize: 14 }}>
+                                        {viewDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                                    </div>
+                                    <button onClick={() => changeMonth(1)} style={{ border: "none", background: "none", color: "#FFD600", cursor: "pointer", fontWeight: "bold" }}>→</button>
+                                </div>
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4 }}>
                                     {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-                                        <div key={i} style={{ textAlign: "center", fontSize: 12, color: t.textSecondary, padding: "4px", fontWeight: 600 }}>{d}</div>
+                                        <div key={i} style={{ textAlign: "center", fontSize: 11, color: t.textSecondary, padding: "4px", fontWeight: 600 }}>{d}</div>
                                     ))}
-                                    {Array(9).fill(null).map((_, i) => <div key={`e${i}`} />)}
-                                    {DAYS.map((day) => (
-                                        <div key={day} onClick={() => { if (day >= 12) { setDate(day); } }} className={`cal-day ${date === day ? "selected" : ""}`}
-                                            style={{ textAlign: "center", padding: "8px 4px", fontSize: 13, color: day < 12 ? t.textSecondary : t.textPrimary, opacity: day < 12 ? 0.4 : 1, cursor: day < 12 ? "default" : "pointer" }}>
-                                            {day}
-                                        </div>
-                                    ))}
+                                    {Array(getFirstDayOfMonth(viewDate.getFullYear(), viewDate.getMonth())).fill(null).map((_, i) => <div key={`e${i}`} />)}
+                                    {Array.from({ length: getDaysInMonth(viewDate.getFullYear(), viewDate.getMonth()) }, (_, i) => i + 1).map((day) => {
+                                        const past = isPastDay(day);
+                                        const selected = isSelected(day);
+                                        return (
+                                            <div 
+                                                key={day} 
+                                                onClick={() => { if (!past) setSelectedDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), day)); }} 
+                                                className={`cal-day ${selected ? "selected" : ""}`}
+                                                style={{ 
+                                                    textAlign: "center", padding: "8px 4px", fontSize: 12, 
+                                                    color: past ? t.textSecondary : t.textPrimary, 
+                                                    opacity: past ? 0.4 : 1, 
+                                                    cursor: past ? "default" : "pointer",
+                                                    background: selected ? "#FFD600" : "transparent",
+                                                    borderRadius: 8,
+                                                    fontWeight: selected ? 700 : 400,
+                                                    color: selected ? "#000" : (past ? t.textSecondary : t.textPrimary)
+                                                }}>
+                                                {day}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                             <div>
@@ -129,7 +176,7 @@ export default function BookingPage() {
                                         </div>
                                     ))}
                                 </div>
-                                {date && time && (
+                                {selectedDate && time && (
                                     <button className="btn-yellow" onClick={() => setStep(3)} style={{ width: "100%", padding: "12px", borderRadius: 12, fontSize: 14, marginTop: 16 }}>Next →</button>
                                 )}
                             </div>
@@ -168,7 +215,7 @@ export default function BookingPage() {
                                 {[
                                     ["📅", "Skill", booking?.skillName || selected?.name],
                                     ["👤", "Mentor", booking?.mentorName || selected?.mentorName],
-                                    ["📅", "Date", booking?.date || `March ${date}, 2026`],
+                                    ["📅", "Date", booking?.date || selectedDate?.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })],
                                     ["⏰", "Time", booking?.time || time],
                                     ["💳", "Cost", `${booking?.creditsCost} credits deducted`],
                                     ["📹", "Format", booking?.sessionType || "Video Call"],

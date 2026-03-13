@@ -92,7 +92,9 @@ export default function MessagesPage() {
         };
 
         app.socket.on("new_message", handleNewMessage);
-        return () => app.socket.off("new_message", handleNewMessage);
+        return () => {
+            app.socket.off("new_message", handleNewMessage);
+        };
     }, [app.socket, activeChatUser]);
 
     useEffect(() => {
@@ -127,6 +129,8 @@ export default function MessagesPage() {
         if (diff < 86400000) return `${Math.floor(diff / 3600000)}h`;
         return `${Math.floor(diff / 86400000)}d`;
     };
+
+
 
     return (
         <div style={{ display: "flex", height: "calc(100vh - 64px)", overflow: "hidden" }}>
@@ -240,14 +244,12 @@ export default function MessagesPage() {
                                 </div>
                             </div>
                             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-                                {["📞", "🎥"].map(ic => (
-                                    <button key={ic} style={{
-                                        background: t.dark ? "rgba(255,255,255,0.06)" : "#F3F3EE",
-                                        border: `1px solid ${t.cardBorder}`,
-                                        borderRadius: 10, width: 38, height: 38, cursor: "pointer", fontSize: 16,
-                                        transition: "all 0.2s",
-                                    }}>{ic}</button>
-                                ))}
+                                <button style={{
+                                    background: t.dark ? "rgba(255,255,255,0.06)" : "#F3F3EE",
+                                    border: `1px solid ${t.cardBorder}`,
+                                    borderRadius: 10, width: 38, height: 38, cursor: "pointer", fontSize: 16,
+                                    transition: "all 0.2s",
+                                }}>📞</button>
                             </div>
                         </div>
 
@@ -315,6 +317,7 @@ export default function MessagesPage() {
                     </div>
                 )}
             </div>
+
         </div>
     );
 }

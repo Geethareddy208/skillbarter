@@ -18,6 +18,7 @@ import WalletPage from "./pages/WalletPage";
 import MessagesPage from "./pages/MessagesPage";
 import BookingPage from "./pages/BookingPage";
 import AdminPage from "./pages/AdminPage";
+import VideoCallPage from "./pages/VideoCallPage";
 
 const PAGES = {
     home: HomePage,
@@ -28,6 +29,7 @@ const PAGES = {
     messages: MessagesPage,
     booking: BookingPage,
     admin: AdminPage,
+    call: VideoCallPage,
 };
 
 // ── Loading splash ─────────────────────────────
@@ -53,14 +55,22 @@ function LoadingSplash() {
 function Shell() {
     const t = useTheme();
     const app = useApp();
-    const CurrentPage = PAGES[app.page] || HomePage;
+
+    let CurrentPage = PAGES[app.page] || HomePage;
+    let pageProps = {};
+
+    if (app.page.startsWith("call/")) {
+        CurrentPage = PAGES["call"];
+        pageProps = { meetingId: app.page.split("call/")[1] };
+    }
+
     return (
         <div style={{ display: "flex", height: "100vh", background: t.bg, overflow: "hidden" }}>
             <Sidebar />
             <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
                 <Topbar />
                 <div style={{ flex: 1, overflowY: "auto" }}>
-                    <CurrentPage />
+                    <CurrentPage {...pageProps} />
                 </div>
             </div>
         </div>

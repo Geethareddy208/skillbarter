@@ -51,6 +51,9 @@ const BookingSchema = new mongoose.Schema(
             type: String,
             default: "",
         },
+        meetingId: {
+            type: String, 
+        }
     },
     { timestamps: true }
 );

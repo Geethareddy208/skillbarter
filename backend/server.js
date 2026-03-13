@@ -48,6 +48,19 @@ io.on("connection", (socket) => {
         io.emit("online_users", Array.from(onlineUsers.keys()));
         console.log(`❌ Socket disconnected: ${socket.id}`);
     });
+
+    // WebRTC Room Signaling
+    socket.on("join-room", (roomId, userId) => {
+        console.log(`👤 User ${userId} joining room ${roomId}`);
+        socket.join(roomId);
+        // Tell everyone else in the room that this user connected
+        socket.to(roomId).emit("user-connected", userId);
+
+        socket.on("disconnect", () => {
+            console.log(`👤 User ${userId} disconnected from room ${roomId}`);
+            socket.to(roomId).emit("user-disconnected", userId);
+        });
+    });
 });
 
 // ── Middleware ─────────────────────────────────
