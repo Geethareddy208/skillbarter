@@ -23,6 +23,7 @@ export default function BookingPage() {
     const [step, setStep] = useState(1);
     const [skills, setSkills] = useState([]);
     const [selected, setSelected] = useState(null);
+    const [searchQuery, setSearchQuery] = useState("");
     
     // Dynamic Date state
     const today = new Date();
@@ -105,21 +106,60 @@ export default function BookingPage() {
                 {/* Step 1 */}
                 {step === 1 && (
                     <div>
-                        <div style={{ fontFamily: "'Playfair Display',sans-serif", fontWeight: 700, fontSize: 18, color: t.textPrimary, marginBottom: 20 }}>Choose Your Mentor</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                            {skills.slice(0, 6).map((s) => (
-                                <div key={s._id} onClick={() => { setSelected(s); setStep(2); }} className="skill-card" style={{ display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", borderRadius: 14, border: `1.5px solid ${t.cardBorder}`, cursor: "pointer" }}>
-                                    <div style={{ width: 50, height: 50, borderRadius: "50%", background: "#FFD600", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 16, color: "#0A0A0A" }}>{s.mentorAvatar || "??"}</div>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontWeight: 600, color: t.textPrimary, fontSize: 15 }}>{s.mentorName}</div>
-                                        <div style={{ fontSize: 13, color: t.textSecondary }}>{s.name}</div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                            <div style={{ fontFamily: "'Playfair Display',sans-serif", fontWeight: 700, fontSize: 18, color: t.textPrimary }}>Choose Your Mentor</div>
+                            <div style={{ position: "relative" }}>
+                                <input 
+                                    type="text" 
+                                    placeholder="Search for a friend or skill..." 
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    style={{
+                                        padding: "8px 16px 8px 36px",
+                                        borderRadius: 12,
+                                        border: `1.5px solid ${t.cardBorder}`,
+                                        background: t.cardBg,
+                                        color: t.textPrimary,
+                                        fontSize: 13,
+                                        width: 240,
+                                        outline: "none",
+                                        transition: "all 0.3s"
+                                    }}
+                                    onFocus={(e) => e.target.style.borderColor = "#FFD600"}
+                                    onBlur={(e) => e.target.style.borderColor = t.cardBorder}
+                                />
+                                <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 14 }}>🔍</span>
+                            </div>
+                        </div>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: 400, overflowY: "auto", paddingRight: 4 }}>
+                            {skills
+                                .filter(s => 
+                                    s.mentorName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                    s.name.toLowerCase().includes(searchQuery.toLowerCase())
+                                )
+                                .map((s) => (
+                                    <div key={s._id} onClick={() => { setSelected(s); setStep(2); }} className="skill-card" style={{ display: "flex", alignItems: "center", gap: 16, padding: "18px 20px", borderRadius: 14, border: `1.5px solid ${t.cardBorder}`, cursor: "pointer" }}>
+                                        <div style={{ width: 50, height: 50, borderRadius: "50%", background: "#FFD600", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 16, color: "#0A0A0A" }}>{s.mentorAvatar || "??"}</div>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontWeight: 600, color: t.textPrimary, fontSize: 15 }}>{s.mentorName}</div>
+                                            <div style={{ fontSize: 13, color: t.textSecondary }}>{s.name}</div>
+                                        </div>
+                                        <div style={{ textAlign: "right" }}>
+                                            <div style={{ color: "#FFD600", fontWeight: 700, fontSize: 15 }}>{s.credits} cr/hr</div>
+                                            <div style={{ fontSize: 12, color: t.textSecondary }}>⭐ {s.rating || "New"}</div>
+                                        </div>
                                     </div>
-                                    <div style={{ textAlign: "right" }}>
-                                        <div style={{ color: "#FFD600", fontWeight: 700, fontSize: 15 }}>{s.credits} cr/hr</div>
-                                        <div style={{ fontSize: 12, color: t.textSecondary }}>⭐ {s.rating || "New"}</div>
-                                    </div>
+                                ))}
+                            {skills.filter(s => 
+                                s.mentorName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                s.name.toLowerCase().includes(searchQuery.toLowerCase())
+                            ).length === 0 && (
+                                <div style={{ textAlign: "center", padding: "40px 20px", color: t.textSecondary }}>
+                                    <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
+                                    <div>No mentors found matching "{searchQuery}"</div>
                                 </div>
-                            ))}
+                            )}
                         </div>
                     </div>
                 )}
